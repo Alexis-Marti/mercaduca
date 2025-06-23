@@ -17,18 +17,17 @@ def registrar_producto():
     tipo_producto = st.selectbox("Tipo de producto", ["Perecedero", "No perecedero"])
     id_emprendimiento = st.text_input("ID del Emprendimiento (asociado)")
 
-    # Campos de fecha solo si es perecedero
-    fecha_entrada = None
-    fecha_vencimiento = None
+    # Si es perecedero, se solicitan fechas
     if tipo_producto == "Perecedero":
         fecha_entrada = st.date_input("Fecha de entrada", value=date.today())
         fecha_vencimiento = st.date_input("Fecha de vencimiento")
+    else:
+        fecha_entrada = None
+        fecha_vencimiento = None
 
     if st.button("Registrar"):
         if not (id_producto and nombre_producto and descripcion and precio and tipo_producto and id_emprendimiento):
             st.warning("⚠️ Por favor, completa todos los campos.")
-        elif tipo_producto == "Perecedero" and (not fecha_entrada or not fecha_vencimiento):
-            st.warning("⚠️ Por favor, completa las fechas para el producto perecedero.")
         else:
             try:
                 con = obtener_conexion()
@@ -43,12 +42,8 @@ def registrar_producto():
                     )
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    id_producto,
-                    nombre_producto,
-                    descripcion,
-                    precio,
-                    tipo_producto,
-                    id_emprendimiento,
+                    id_producto, nombre_producto, descripcion, precio,
+                    tipo_producto, id_emprendimiento,
                     fecha_entrada if fecha_entrada else None,
                     fecha_vencimiento if fecha_vencimiento else None
                 ))
