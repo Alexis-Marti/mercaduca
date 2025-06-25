@@ -3,7 +3,7 @@ from datetime import datetime
 from modulos.config.conexion import obtener_conexion
 
 def mostrar_ventas():
-    st.header("📟 Registrar venta")
+    st.header("🏷️ Registrar venta")
 
     # Estado inicial
     if "secciones" not in st.session_state:
@@ -39,7 +39,7 @@ def mostrar_ventas():
         # Mostrar secciones de emprendimientos y productos
         for seccion in st.session_state.secciones:
             sec_id = seccion["id"]
-            st.markdown(f"## 🧩 Emprendimiento #{sec_id + 1}")
+            st.markdown(f"## Emprendimiento #{sec_id + 1}")
 
             # Mostrar selectbox siempre
             opciones_emp = ["-- Selecciona --"] + list(emprend_dict.keys())
