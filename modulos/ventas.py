@@ -1,11 +1,12 @@
 import streamlit as st
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from modulos.config.conexion import obtener_conexion
 
 def mostrar_ventas():
     st.header("🏷️ Registrar venta")
 
+    # Estado inicial
     if "secciones" not in st.session_state:
         st.session_state.secciones = [{
             "id": 0,
@@ -18,6 +19,7 @@ def mostrar_ventas():
         con = obtener_conexion()
         cursor = con.cursor()
 
+        # Cargar emprendimientos y productos
         cursor.execute("SELECT ID_Emprendimiento, Nombre_emprendimiento FROM EMPRENDIMIENTO")
         emprendimientos = cursor.fetchall()
         emprend_dict = {nombre: id_emp for id_emp, nombre in emprendimientos}
@@ -29,12 +31,13 @@ def mostrar_ventas():
             productos_por_emprendimiento.setdefault(id_emp, []).append({
                 "id": idp,
                 "nombre": nombre,
-                "precio": precio
+                "precio": Decimal(str(precio))
             })
 
-        total_general = 0
+        total_general = Decimal("0")
         productos_vender = []
 
+        # Mostrar secciones de emprendimientos y productos
         for seccion in st.session_state.secciones:
             sec_id = seccion["id"]
             st.markdown(f"## Emprendimiento #{sec_id + 1}")
@@ -59,7 +62,7 @@ def mostrar_ventas():
             if nuevo_id_emp != seccion["emprendimiento"]:
                 seccion["emprendimiento"] = nuevo_id_emp
                 seccion["productos"] = [{"producto": None, "cantidad": 1}]
-                st.rerun()
+                st.experimental_rerun()
 
             id_emp = seccion["emprendimiento"]
             productos_disponibles = productos_por_emprendimiento.get(id_emp, [])
@@ -98,17 +101,17 @@ def mostrar_ventas():
 
             if st.button(f"➕ Agregar otro producto a emprendimiento #{sec_id + 1}", key=f"add_prod_{sec_id}"):
                 seccion["productos"].append({"producto": None, "cantidad": 1})
-                st.rerun()
+                st.experimental_rerun()
 
-            subtotal = 0
+            subtotal = Decimal("0")
             for p in seccion["productos"]:
                 if p["producto"]:
                     info = next((x for x in productos_disponibles if x["nombre"] == p["producto"]), None)
                     if info:
-                        subtotal += info["precio"] * p["cantidad"]
+                        subtotal += info["precio"] * Decimal(p["cantidad"])
                         productos_vender.append({
                             "id_producto": info["id"],
-                            "cantidad": p["cantidad"],
+                            "cantidad": Decimal(p["cantidad"]),
                             "precio_unitario": info["precio"]
                         })
             total_general += subtotal
@@ -123,22 +126,23 @@ def mostrar_ventas():
                     "productos": []
                 })
                 st.session_state.contador_secciones += 1
-                st.rerun()
+                st.experimental_rerun()
 
         if productos_vender:
             st.markdown("---")
             st.markdown(f"### 💰 Total general: **${total_general:.2f}**")
 
-            col1, col2 = st.columns(2)
-            with col1:
-                pago_efectivo = st.number_input("💵 Pago en efectivo", min_value=0.0, value=0.0, step=0.01)
-            with col2:
-                pago_woompi = st.number_input("📱 Pago con Woompi", min_value=0.0, value=0.0, step=0.01)
+            # Inputs para pagos en efectivo y Woompi con Decimal
+            pago_efectivo = st.number_input("Pago en efectivo", min_value=0.0, step=0.01, format="%.2f", key="pago_efectivo")
+            pago_woompi = st.number_input("Pago con Woompi", min_value=0.0, step=0.01, format="%.2f", key="pago_woompi")
 
+            # Convertir a Decimal para evitar errores float/Decimal
+            pago_efectivo = Decimal(str(pago_efectivo)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            pago_woompi = Decimal(str(pago_woompi)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             pago_total = pago_efectivo + pago_woompi
 
             if st.button("✅ Registrar venta"):
-                if abs(pago_total - total_general) > 0.01:
+                if abs(pago_total - total_general) > Decimal("0.01"):
                     st.error("⚠️ La suma de los pagos no coincide con el total de la venta.")
                     return
 
@@ -152,18 +156,6 @@ def mostrar_ventas():
                     )
                     id_venta = cursor.lastrowid
 
-                    # Registrar pagos
-                    if pago_efectivo > 0:
-                        cursor.execute(
-                            "INSERT INTO PAGO (id_venta, metodo_pago, monto) VALUES (%s, %s, %s)",
-                            (id_venta, "Efectivo", pago_efectivo)
-                        )
-                    if pago_woompi > 0:
-                        cursor.execute(
-                            "INSERT INTO PAGO (id_venta, metodo_pago, monto) VALUES (%s, %s, %s)",
-                            (id_venta, "Woompi", pago_woompi)
-                        )
-
                     for p in productos_vender:
                         id_producto = p["id_producto"]
                         cantidad_vendida = p["cantidad"]
@@ -174,7 +166,7 @@ def mostrar_ventas():
                             (id_venta, id_producto, cantidad_vendida, precio_unitario)
                         )
 
-                        restante = Decimal(cantidad_vendida)
+                        restante = cantidad_vendida
                         cursor.execute(
                             "SELECT ID_Inventario, Stock FROM INVENTARIO WHERE ID_Producto = %s AND Stock > 0 ORDER BY Fecha_ingreso ASC",
                             (id_producto,)
@@ -206,7 +198,7 @@ def mostrar_ventas():
                     st.success(f"✅ Venta registrada correctamente con ID: {id_venta}")
                     st.session_state.secciones = [{"id": 0, "emprendimiento": None, "productos": []}]
                     st.session_state.contador_secciones = 1
-                    st.rerun()
+                    st.experimental_rerun()
 
                 except Exception as e:
                     con.rollback()
