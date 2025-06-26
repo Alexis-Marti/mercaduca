@@ -131,12 +131,21 @@ def mostrar_ventas():
         if productos_vender:
             st.markdown("---")
             st.markdown(f"### 💰 Total general: **${total_general:.2f}**")
-            tipo_pago = st.selectbox("💳 Tipo de pago", ["Efectivo", "Woompi"], key="tipo_pago")
+            st.markdown("### 💳 Tipo de pago")
+            pago_efectivo = st.number_input("Monto en efectivo", min_value=0.0, value=0.0, step=0.01, key="pago_efectivo")
+            pago_woompi = st.number_input("Monto en Woompi", min_value=0.0, value=0.0, step=0.01, key="pago_woompi")
 
             if st.button("✅ Registrar venta"):
                 try:
+                    total_pago = pago_efectivo + pago_woompi
+                    if abs(total_pago - total_general) > 0.01:
+                        st.error("❌ La suma del pago en efectivo y Woompi no coincide con el total.")
+                        return
+
                     fecha_venta = datetime.now()
                     total_cantidad_vendida = sum(p["cantidad"] for p in productos_vender)
+
+                    tipo_pago = "Efectivo y Woompi" if pago_efectivo > 0 and pago_woompi > 0 else ("Efectivo" if pago_efectivo > 0 else "Woompi")
 
                     cursor.execute(
                         "INSERT INTO VENTA (fecha_venta, tipo_pago, cantidad_vendida) VALUES (%s, %s, %s)",
@@ -199,3 +208,4 @@ def mostrar_ventas():
             cursor.close()
         if 'con' in locals():
             con.close()
+
