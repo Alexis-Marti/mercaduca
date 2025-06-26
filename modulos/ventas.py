@@ -1,12 +1,11 @@
 import streamlit as st
 from datetime import datetime
-from decimal import Decimal, ROUND_HALF_UP
 from modulos.config.conexion import obtener_conexion
+from decimal import Decimal
 
 def mostrar_ventas():
     st.header("🏷️ Registrar venta")
 
-    # Estado inicial
     if "secciones" not in st.session_state:
         st.session_state.secciones = [{
             "id": 0,
@@ -31,13 +30,13 @@ def mostrar_ventas():
             productos_por_emprendimiento.setdefault(id_emp, []).append({
                 "id": idp,
                 "nombre": nombre,
-                "precio": Decimal(str(precio))
+                "precio": float(precio)  # Convertimos Decimal a float para evitar errores
             })
 
-        total_general = Decimal("0")
+        total_general = 0
         productos_vender = []
 
-        # Mostrar secciones de emprendimientos y productos
+        # Mostrar secciones
         for seccion in st.session_state.secciones:
             sec_id = seccion["id"]
             st.markdown(f"## Emprendimiento #{sec_id + 1}")
@@ -62,7 +61,7 @@ def mostrar_ventas():
             if nuevo_id_emp != seccion["emprendimiento"]:
                 seccion["emprendimiento"] = nuevo_id_emp
                 seccion["productos"] = [{"producto": None, "cantidad": 1}]
-                st.experimental_rerun()
+                st.rerun()
 
             id_emp = seccion["emprendimiento"]
             productos_disponibles = productos_por_emprendimiento.get(id_emp, [])
@@ -76,9 +75,7 @@ def mostrar_ventas():
             for i, prod in enumerate(seccion["productos"]):
                 col1, col2 = st.columns([3, 1])
 
-                idx_prod_sel = 0
-                if prod["producto"] in opciones_productos:
-                    idx_prod_sel = opciones_productos.index(prod["producto"])
+                idx_prod_sel = opciones_productos.index(prod["producto"]) if prod["producto"] in opciones_productos else 0
 
                 with col1:
                     prod_sel = st.selectbox(
@@ -101,17 +98,17 @@ def mostrar_ventas():
 
             if st.button(f"➕ Agregar otro producto a emprendimiento #{sec_id + 1}", key=f"add_prod_{sec_id}"):
                 seccion["productos"].append({"producto": None, "cantidad": 1})
-                st.experimental_rerun()
+                st.rerun()
 
-            subtotal = Decimal("0")
+            subtotal = 0
             for p in seccion["productos"]:
                 if p["producto"]:
                     info = next((x for x in productos_disponibles if x["nombre"] == p["producto"]), None)
                     if info:
-                        subtotal += info["precio"] * Decimal(p["cantidad"])
+                        subtotal += info["precio"] * p["cantidad"]
                         productos_vender.append({
                             "id_producto": info["id"],
-                            "cantidad": Decimal(p["cantidad"]),
+                            "cantidad": p["cantidad"],
                             "precio_unitario": info["precio"]
                         })
             total_general += subtotal
@@ -126,83 +123,78 @@ def mostrar_ventas():
                     "productos": []
                 })
                 st.session_state.contador_secciones += 1
-                st.experimental_rerun()
+                st.rerun()
 
         if productos_vender:
             st.markdown("---")
             st.markdown(f"### 💰 Total general: **${total_general:.2f}**")
 
-            # Inputs para pagos en efectivo y Woompi con Decimal
-            pago_efectivo = st.number_input("Pago en efectivo", min_value=0.0, step=0.01, format="%.2f", key="pago_efectivo")
-            pago_woompi = st.number_input("Pago con Woompi", min_value=0.0, step=0.01, format="%.2f", key="pago_woompi")
+            # Pago mixto
+            st.markdown("### 💳 Formas de pago")
+            pago_efectivo = st.number_input("💵 Monto en efectivo", min_value=0.0, format="%.2f")
+            pago_woompi = st.number_input("📲 Monto en Woompi", min_value=0.0, format="%.2f")
 
-            # Convertir a Decimal para evitar errores float/Decimal
-            pago_efectivo = Decimal(str(pago_efectivo)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            pago_woompi = Decimal(str(pago_woompi)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            pago_total = pago_efectivo + pago_woompi
-
-            if st.button("✅ Registrar venta"):
-                if abs(pago_total - total_general) > Decimal("0.01"):
-                    st.error("⚠️ La suma de los pagos no coincide con el total de la venta.")
-                    return
-
-                try:
-                    fecha_venta = datetime.now()
-                    total_cantidad_vendida = sum(p["cantidad"] for p in productos_vender)
-
-                    cursor.execute(
-                        "INSERT INTO VENTA (fecha_venta, tipo_pago, cantidad_vendida) VALUES (%s, %s, %s)",
-                        (fecha_venta, "Mixto", total_cantidad_vendida)
-                    )
-                    id_venta = cursor.lastrowid
-
-                    for p in productos_vender:
-                        id_producto = p["id_producto"]
-                        cantidad_vendida = p["cantidad"]
-                        precio_unitario = p["precio_unitario"]
+            if abs((pago_efectivo + pago_woompi) - total_general) > 0.01:
+                st.warning("⚠️ El monto total ingresado no coincide con el total de la venta.")
+            else:
+                if st.button("✅ Registrar venta"):
+                    try:
+                        fecha_venta = datetime.now()
+                        total_cantidad_vendida = sum(p["cantidad"] for p in productos_vender)
 
                         cursor.execute(
-                            "INSERT INTO PRODUCTOXVENTA (id_venta, id_producto, cantidad, precio_unitario) VALUES (%s, %s, %s, %s)",
-                            (id_venta, id_producto, cantidad_vendida, precio_unitario)
+                            "INSERT INTO VENTA (fecha_venta, tipo_pago, cantidad_vendida) VALUES (%s, %s, %s)",
+                            (fecha_venta, "Mixto", total_cantidad_vendida)
                         )
+                        id_venta = cursor.lastrowid
 
-                        restante = cantidad_vendida
-                        cursor.execute(
-                            "SELECT ID_Inventario, Stock FROM INVENTARIO WHERE ID_Producto = %s AND Stock > 0 ORDER BY Fecha_ingreso ASC",
-                            (id_producto,)
-                        )
-                        inventario = cursor.fetchall()
+                        for p in productos_vender:
+                            id_producto = p["id_producto"]
+                            cantidad_vendida = p["cantidad"]
+                            precio_unitario = p["precio_unitario"]
 
-                        for id_inventario, stock in inventario:
-                            stock = Decimal(stock)
-                            if restante <= 0:
-                                break
-                            if stock <= restante:
-                                cursor.execute(
-                                    "UPDATE INVENTARIO SET Stock = 0, Fecha_salida = %s, Cantidad_salida = Cantidad_salida + %s WHERE ID_Inventario = %s",
-                                    (fecha_venta, stock, id_inventario)
-                                )
-                                restante -= stock
-                            else:
-                                nuevo_stock = stock - restante
-                                cursor.execute(
-                                    "UPDATE INVENTARIO SET Stock = %s, Fecha_salida = %s, Cantidad_salida = Cantidad_salida + %s WHERE ID_Inventario = %s",
-                                    (nuevo_stock, fecha_venta, restante, id_inventario)
-                                )
-                                restante = Decimal("0")
+                            cursor.execute(
+                                "INSERT INTO PRODUCTOXVENTA (id_venta, id_producto, cantidad, precio_unitario) VALUES (%s, %s, %s, %s)",
+                                (id_venta, id_producto, cantidad_vendida, precio_unitario)
+                            )
 
-                        if restante > 0:
-                            raise Exception(f"Stock insuficiente para producto ID {id_producto}")
+                            restante = cantidad_vendida
+                            cursor.execute(
+                                "SELECT ID_Inventario, Stock FROM INVENTARIO WHERE ID_Producto = %s AND Stock > 0 ORDER BY Fecha_ingreso ASC",
+                                (id_producto,)
+                            )
+                            inventario = cursor.fetchall()
 
-                    con.commit()
-                    st.success(f"✅ Venta registrada correctamente con ID: {id_venta}")
-                    st.session_state.secciones = [{"id": 0, "emprendimiento": None, "productos": []}]
-                    st.session_state.contador_secciones = 1
-                    st.experimental_rerun()
+                            for id_inventario, stock in inventario:
+                                stock = float(stock)
+                                if restante <= 0:
+                                    break
+                                if stock <= restante:
+                                    cursor.execute(
+                                        "UPDATE INVENTARIO SET Stock = 0, Fecha_salida = %s, Cantidad_salida = Cantidad_salida + %s WHERE ID_Inventario = %s",
+                                        (fecha_venta, stock, id_inventario)
+                                    )
+                                    restante -= stock
+                                else:
+                                    nuevo_stock = stock - restante
+                                    cursor.execute(
+                                        "UPDATE INVENTARIO SET Stock = %s, Fecha_salida = %s, Cantidad_salida = Cantidad_salida + %s WHERE ID_Inventario = %s",
+                                        (nuevo_stock, fecha_venta, restante, id_inventario)
+                                    )
+                                    restante = 0
 
-                except Exception as e:
-                    con.rollback()
-                    st.error(f"❌ Error al registrar la venta o actualizar inventario: {e}")
+                            if restante > 0:
+                                raise Exception(f"Stock insuficiente para producto ID {id_producto}")
+
+                        con.commit()
+                        st.success(f"✅ Venta registrada correctamente con ID: {id_venta}")
+                        st.session_state.secciones = [{"id": 0, "emprendimiento": None, "productos": []}]
+                        st.session_state.contador_secciones = 1
+                        st.rerun()
+
+                    except Exception as e:
+                        con.rollback()
+                        st.error(f"❌ Error al registrar la venta o actualizar inventario: {e}")
 
     except Exception as e:
         st.error(f"❌ Error general: {e}")
@@ -212,3 +204,4 @@ def mostrar_ventas():
             cursor.close()
         if 'con' in locals():
             con.close()
+
