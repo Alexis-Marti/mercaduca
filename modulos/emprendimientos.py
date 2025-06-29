@@ -15,11 +15,20 @@ def actualizar_emprendimiento(df):
     cursor = con.cursor()
     registros_actualizados = 0
 
-    # Reemplaza NaN por cadena vacía
-    df = df.fillna('')
+    df = df.fillna('')  # Evita NaN
 
     for _, row in df.iterrows():
         try:
+            valores = (
+                row["Nombre_emprendimiento"],
+                row["Nombre_emprendedor"],
+                row["Telefono"],
+                row["Cuenta_bancaria"],
+                row["Estado"],
+                row["ID_Emprendimiento"]
+            )
+
+            st.write(f"Actualizando con valores: {valores}")  # Mostrar en la app para debug
             cursor.execute("""
                 UPDATE EMPRENDIMIENTO 
                 SET Nombre_emprendimiento=?,
@@ -28,15 +37,10 @@ def actualizar_emprendimiento(df):
                     Cuenta_bancaria=?,
                     Estado=?
                 WHERE ID_Emprendimiento=?
-            """, (
-                str(row["Nombre_emprendimiento"]),
-                str(row["Nombre_emprendedor"]),
-                str(row["Telefono"]),
-                str(row["Cuenta_bancaria"]),
-                str(row["Estado"]),
-                str(row["ID_Emprendimiento"])
-            ))
+            """, valores)
+
             registros_actualizados += cursor.rowcount
+
         except Exception as e:
             st.error(f"❌ Error al actualizar ID {row['ID_Emprendimiento']}: {e}")
 
@@ -52,11 +56,18 @@ def eliminar_emprendimientos(ids_a_eliminar):
     """Elimina emprendimientos por sus ID desde la base de datos."""
     con = obtener_conexion()
     cursor = con.cursor()
-    formato_ids = ','.join(['?'] * len(ids_a_eliminar))
 
     try:
-        cursor.execute(f"DELETE FROM EMPRENDIMIENTO WHERE ID_Emprendimiento IN ({formato_ids})", tuple(ids_a_eliminar))
+        formato_ids = ','.join(['?'] * len(ids_a_eliminar))
+        st.write(f"Eliminando IDs: {ids_a_eliminar}")  # Mostrar en app para debug
+
+        cursor.execute(
+            f"DELETE FROM EMPRENDIMIENTO WHERE ID_Emprendimiento IN ({formato_ids})",
+            tuple(ids_a_eliminar)
+        )
+
         registros_eliminados = cursor.rowcount
+
     except Exception as e:
         st.error(f"❌ Error al eliminar: {e}")
         registros_eliminados = 0
@@ -89,7 +100,7 @@ def mostrar_emprendimientos():
     if nombre_seleccionado != "Todos":
         df = df[df["Nombre_emprendimiento"] == nombre_seleccionado]
 
-    # Agregamos columna para eliminar
+    # Agregar columna para eliminación
     df["Eliminar"] = False
     edited_df = st.data_editor(df, num_rows="fixed", use_container_width=True, key="editor_emprendimientos")
 
