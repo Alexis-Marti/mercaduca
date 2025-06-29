@@ -15,24 +15,19 @@ def registrar_emprendimiento():
     telefono = st.text_input("Teléfono")
     estado = st.selectbox("Estado", ["Activo", "Inactivo"])
 
+    # Campos adicionales obligatorios según tu tabla
+    carne_uca = st.text_input("Carné UCA")
+    dui = st.text_input("DUI")
+    facultad = st.text_input("Facultad")
+    genero = st.selectbox("Género", ["Masculino", "Femenino", "Otro"])
+
     if st.button("Registrar"):
-        if not (id_emprendimiento and nombre_emprendimiento and nombre_emprendedor and telefono and estado):
+        if not (id_emprendimiento and nombre_emprendimiento and nombre_emprendedor and telefono and estado and carne_uca and dui and facultad and genero):
             st.warning("⚠️ Por favor, completa todos los campos.")
         else:
             try:
                 con = obtener_conexion()
                 cursor = con.cursor()
-
-                parametros = (
-                    id_emprendimiento.strip(),
-                    nombre_emprendimiento.strip(),
-                    nombre_emprendedor.strip(),
-                    telefono.strip(),
-                    estado
-                )
-
-                # Debug
-                st.write("📦 Valores a insertar:", parametros)
 
                 cursor.execute("""
                     INSERT INTO EMPRENDIMIENTO (
@@ -40,9 +35,23 @@ def registrar_emprendimiento():
                         Nombre_emprendimiento,
                         Nombre_emprendedor,
                         Telefono,
-                        Estado
-                    ) VALUES (%s, %s, %s, %s, %s)
-                """, parametros)
+                        Estado,
+                        carne_uca,
+                        dui,
+                        facultad,
+                        genero
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    id_emprendimiento,
+                    nombre_emprendimiento,
+                    nombre_emprendedor,
+                    telefono,
+                    estado,
+                    carne_uca,
+                    dui,
+                    facultad,
+                    genero
+                ))
 
                 con.commit()
                 st.success("✅ Emprendimiento registrado correctamente.")
@@ -54,4 +63,5 @@ def registrar_emprendimiento():
                     cursor.close()
                 if 'con' in locals():
                     con.close()
+
 
