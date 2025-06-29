@@ -15,25 +15,30 @@ def actualizar_emprendimiento(df):
     cursor = con.cursor()
     registros_actualizados = 0
 
-    for _, row in df.iterrows():
-        cursor.execute("""
-            UPDATE EMPRENDIMIENTO 
-            SET Nombre_emprendimiento=%s,
-                Nombre_emprendedor=%s,
-                Telefono=%s,
-                Cuenta_bancaria=%s,
-                Estado=%s
-            WHERE ID_Emprendimiento=%s
-        """, (
-            str(row["Nombre_emprendimiento"]),
-            str(row["Nombre_emprendedor"]),
-            str(row["Telefono"]),
-            str(row["Cuenta_bancaria"]),
-            str(row["Estado"]),
-            str(row["ID_Emprendimiento"])
-        ))
+    # Reemplaza NaN por cadena vacía
+    df = df.fillna('')
 
-        registros_actualizados += cursor.rowcount
+    for _, row in df.iterrows():
+        try:
+            cursor.execute("""
+                UPDATE EMPRENDIMIENTO 
+                SET Nombre_emprendimiento=?,
+                    Nombre_emprendedor=?,
+                    Telefono=?,
+                    Cuenta_bancaria=?,
+                    Estado=?
+                WHERE ID_Emprendimiento=?
+            """, (
+                str(row["Nombre_emprendimiento"]),
+                str(row["Nombre_emprendedor"]),
+                str(row["Telefono"]),
+                str(row["Cuenta_bancaria"]),
+                str(row["Estado"]),
+                str(row["ID_Emprendimiento"])
+            ))
+            registros_actualizados += cursor.rowcount
+        except Exception as e:
+            st.error(f"❌ Error al actualizar ID {row['ID_Emprendimiento']}: {e}")
 
     con.commit()
     con.close()
@@ -47,10 +52,14 @@ def eliminar_emprendimientos(ids_a_eliminar):
     """Elimina emprendimientos por sus ID desde la base de datos."""
     con = obtener_conexion()
     cursor = con.cursor()
-    formato_ids = ','.join(['%s'] * len(ids_a_eliminar))
+    formato_ids = ','.join(['?'] * len(ids_a_eliminar))
 
-    cursor.execute(f"DELETE FROM EMPRENDIMIENTO WHERE ID_Emprendimiento IN ({formato_ids})", tuple(ids_a_eliminar))
-    registros_eliminados = cursor.rowcount
+    try:
+        cursor.execute(f"DELETE FROM EMPRENDIMIENTO WHERE ID_Emprendimiento IN ({formato_ids})", tuple(ids_a_eliminar))
+        registros_eliminados = cursor.rowcount
+    except Exception as e:
+        st.error(f"❌ Error al eliminar: {e}")
+        registros_eliminados = 0
 
     con.commit()
     con.close()
@@ -97,5 +106,3 @@ def mostrar_emprendimientos():
                 eliminar_emprendimientos(ids_a_eliminar)
             else:
                 st.info("Selecciona al menos un emprendimiento para eliminar.")
-
-
