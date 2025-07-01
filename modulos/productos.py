@@ -6,12 +6,14 @@ def obtener_productos():
     """Obtiene todos los registros de PRODUCTO desde la base de datos."""
     con = obtener_conexion()
     df = pd.read_sql("SELECT * FROM PRODUCTO", con)
-
-    # Convertimos las fechas a tipo datetime (para evitar errores en el editor)
-    df["Fecha_entrada"] = pd.to_datetime(df["Fecha_entrada"], errors="coerce")
-    df["Fecha_vencimiento"] = pd.to_datetime(df["Fecha_vencimiento"], errors="coerce")
-
     con.close()
+
+    # Convertimos las fechas a tipo datetime solo si existen
+    if "Fecha_entrada" in df.columns:
+        df["Fecha_entrada"] = pd.to_datetime(df["Fecha_entrada"], errors="coerce")
+    if "Fecha_vencimiento" in df.columns:
+        df["Fecha_vencimiento"] = pd.to_datetime(df["Fecha_vencimiento"], errors="coerce")
+
     return df
 
 def actualizar_productos(df):
@@ -41,7 +43,6 @@ def actualizar_productos(df):
             row["Fecha_vencimiento"].date() if pd.notnull(row["Fecha_vencimiento"]) else None,
             str(row["ID_Producto"])
         ))
-
         registros_actualizados += cursor.rowcount
 
     con.commit()
@@ -54,6 +55,9 @@ def actualizar_productos(df):
 
 def eliminar_productos(ids_a_eliminar):
     """Elimina productos por sus ID desde la base de datos."""
+    if not ids_a_eliminar:
+        return
+
     con = obtener_conexion()
     cursor = con.cursor()
     formato_ids = ','.join(['%s'] * len(ids_a_eliminar))
@@ -73,28 +77,27 @@ def mostrar_productos():
     """Muestra la tabla de PRODUCTO para edición y eliminación."""
     st.header("📦 Productos")
 
-    df = obtener_productos()
-    if df.empty:
-        st.info("No hay productos registrados.")
-        return
+    if "df_productos" not in st.session_state:
+        st.session_state.df_productos = obtener_productos()
+        st.session_state.df_productos["Eliminar"] = False
+
+    df = st.session_state.df_productos
 
     # Filtro por nombre de producto
     nombres_unicos = df["Nombre_producto"].dropna().unique()
-    if len(nombres_unicos) > 0:
-        nombre_seleccionado = st.selectbox(
-            "🔍 Buscar producto por nombre:",
-            options=["Todos"] + sorted(nombres_unicos.tolist()),
-            index=0
-        )
+    nombre_seleccionado = st.selectbox(
+        "🔍 Buscar producto por nombre:",
+        options=["Todos"] + sorted(nombres_unicos.tolist()),
+        index=0
+    )
 
-        if nombre_seleccionado != "Todos":
-            df = df[df["Nombre_producto"] == nombre_seleccionado]
-
-    # Agregar columna de eliminación
-    df["Eliminar"] = False
+    if nombre_seleccionado != "Todos":
+        df_vista = df[df["Nombre_producto"] == nombre_seleccionado].copy()
+    else:
+        df_vista = df.copy()
 
     edited_df = st.data_editor(
-        df,
+        df_vista,
         num_rows="fixed",
         use_container_width=True,
         key="editor_productos"
@@ -104,17 +107,27 @@ def mostrar_productos():
 
     with col1:
         if st.button("💾 Guardar Cambios"):
-            actualizar_productos(edited_df.drop(columns=["Eliminar"]))
+            # Actualiza los datos en session_state
+            for idx, row in edited_df.iterrows():
+                st.session_state.df_productos.loc[idx] = row
+
+            # Luego actualiza en base de datos
+            actualizar_productos(st.session_state.df_productos.drop(columns=["Eliminar"]))
 
     with col2:
         if st.button("🗑️ Eliminar seleccionados"):
             productos_a_eliminar = edited_df[edited_df["Eliminar"] == True]["ID_Producto"].tolist()
             if productos_a_eliminar:
                 eliminar_productos(productos_a_eliminar)
+                # Quita los eliminados de session_state
+                st.session_state.df_productos = st.session_state.df_productos[
+                    ~st.session_state.df_productos["ID_Producto"].isin(productos_a_eliminar)
+                ]
             else:
                 st.info("Selecciona al menos un producto para eliminar.")
 
 # Para ejecución directa
 if __name__ == "__main__":
     mostrar_productos()
+
 
