@@ -22,21 +22,30 @@ def actualizar_emprendimiento(original_df, edited_df):
             row_editada = edited_df.iloc[i]
             row_original = original_df.iloc[i]
 
-            # Verifica si hubo cambios en la fila
             if not row_editada.equals(row_original):
                 cursor.execute("""
                     UPDATE EMPRENDIMIENTO 
                     SET Nombre_emprendimiento=%s,
                         Nombre_emprendedor=%s,
                         Telefono=%s,
-                        Estado=%s
+                        Estado=%s,
+                        carne_uca=%s,
+                        dui=%s,
+                        facultad=%s,
+                        genero=%s,
+                        Tipo_emprendedor=%s
                     WHERE ID_Emprendimiento=%s
                 """, (
-                    row_editada["Nombre_emprendimiento"],
-                    row_editada["Nombre_emprendedor"],
-                    row_editada["Telefono"],
-                    row_editada["Estado"],
-                    row_editada["ID_Emprendimiento"]
+                    row_editada.get("Nombre_emprendimiento"),
+                    row_editada.get("Nombre_emprendedor"),
+                    row_editada.get("Telefono"),
+                    row_editada.get("Estado"),
+                    row_editada.get("carne_uca"),
+                    row_editada.get("dui"),
+                    row_editada.get("facultad"),
+                    row_editada.get("genero"),
+                    row_editada.get("Tipo_emprendedor"),
+                    row_editada.get("ID_Emprendimiento")
                 ))
                 registros_actualizados += cursor.rowcount
 
@@ -75,11 +84,13 @@ def eliminar_emprendimientos(ids_a_eliminar):
 def mostrar_emprendimientos():
     st.header("📋 Emprendimientos registrados")
 
+    # Cargar datos originales y congelarlos antes de editar
     df_original = obtener_emprendimientos()
     if df_original.empty:
         st.info("No hay emprendimientos registrados.")
         return
 
+    # Filtro de búsqueda
     nombres_unicos = df_original["Nombre_emprendimiento"].dropna().unique()
     nombre_seleccionado = st.selectbox(
         "🔍 Buscar emprendimiento por nombre:",
@@ -92,8 +103,12 @@ def mostrar_emprendimientos():
         df_filtrado = df_filtrado[df_filtrado["Nombre_emprendimiento"] == nombre_seleccionado]
 
     df_filtrado = df_filtrado.reset_index(drop=True)
-    df_filtrado["Eliminar"] = False  # Columna para eliminar
+    df_filtrado["Eliminar"] = False
 
+    # Copia antes de editar (sin columna de eliminar)
+    df_congelado = df_filtrado.drop(columns=["Eliminar"]).copy()
+
+    # Editor de datos
     edited_df = st.data_editor(
         df_filtrado,
         num_rows="fixed",
@@ -105,9 +120,8 @@ def mostrar_emprendimientos():
 
     with col1:
         if st.button("💾 Guardar Cambios"):
-            # Elimina la columna 'Eliminar' para la comparación y actualización
             actualizar_emprendimiento(
-                df_filtrado.drop(columns=["Eliminar"]),
+                df_congelado,
                 edited_df.drop(columns=["Eliminar"])
             )
 
@@ -116,6 +130,7 @@ def mostrar_emprendimientos():
             ids_a_eliminar = edited_df[edited_df["Eliminar"] == True]["ID_Emprendimiento"].tolist()
             if ids_a_eliminar:
                 eliminar_emprendimientos(ids_a_eliminar)
+                st.experimental_rerun()  # Solo recarga si elimina
             else:
                 st.info("Selecciona al menos un emprendimiento para eliminar.")
 
