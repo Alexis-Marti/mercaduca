@@ -32,6 +32,7 @@ def actualizar_productos(df):
             str(row["ID_Emprendimiento"]),
             str(row["ID_Producto"])
         ))
+
         registros_actualizados += cursor.rowcount
 
     con.commit()
@@ -44,20 +45,34 @@ def actualizar_productos(df):
 
 def eliminar_productos(ids_a_eliminar):
     """Elimina productos por sus ID desde la base de datos."""
+    if not ids_a_eliminar:
+        st.warning("⚠️ No hay productos seleccionados para eliminar.")
+        return
+
+    # Asegurar que los IDs sean válidos
+    ids_a_eliminar = [str(id_) for id_ in ids_a_eliminar if pd.notna(id_)]
+
+    if not ids_a_eliminar:
+        st.warning("⚠️ Lista de IDs vacía o inválida. Verifica los datos.")
+        return
+
     con = obtener_conexion()
     cursor = con.cursor()
     formato_ids = ','.join(['%s'] * len(ids_a_eliminar))
 
-    cursor.execute(f"DELETE FROM PRODUCTO WHERE ID_Producto IN ({formato_ids})", tuple(ids_a_eliminar))
-    registros_eliminados = cursor.rowcount
+    try:
+        cursor.execute(f"DELETE FROM PRODUCTO WHERE ID_Producto IN ({formato_ids})", tuple(ids_a_eliminar))
+        registros_eliminados = cursor.rowcount
+        con.commit()
 
-    con.commit()
-    con.close()
-
-    if registros_eliminados > 0:
-        st.success(f"🗑️ Se eliminaron {registros_eliminados} producto(s).")
-    else:
-        st.warning("⚠️ No se eliminó ningún producto. Revisa si los ID existen.")
+        if registros_eliminados > 0:
+            st.success(f"🗑️ Se eliminaron {registros_eliminados} producto(s).")
+        else:
+            st.warning("⚠️ No se eliminó ningún producto. Revisa si los ID existen.")
+    except Exception as e:
+        st.error(f"❌ Error al eliminar productos: {str(e)}")
+    finally:
+        con.close()
 
 def mostrar_productos():
     """Muestra la tabla de PRODUCTO para edición y eliminación."""
@@ -98,7 +113,7 @@ def mostrar_productos():
 
     with col2:
         if st.button("🗑️ Eliminar seleccionados"):
-            productos_a_eliminar = edited_df[edited_df["Eliminar"] == True]["ID_Producto"].tolist()
+            productos_a_eliminar = edited_df.loc[edited_df["Eliminar"] == True, "ID_Producto"].dropna().tolist()
             if productos_a_eliminar:
                 eliminar_productos(productos_a_eliminar)
             else:
@@ -107,5 +122,3 @@ def mostrar_productos():
 # Para ejecución directa
 if __name__ == "__main__":
     mostrar_productos()
-
-
