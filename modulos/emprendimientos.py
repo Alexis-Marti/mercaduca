@@ -1,52 +1,29 @@
-import streamlit as st
-from modulos.config.conexion import obtener_conexion
+def mostrar_emprendimientos():
+    st.header("Emprendimientos registrados")
 
-def registrar_emprendimiento():
-    if "usuario" not in st.session_state:
-        st.warning("⚠️ Debes iniciar sesión.")
-        st.stop()
+    try:
+        con = obtener_conexion()
+        cursor = con.cursor()
+        cursor.execute("SELECT ID_Emprendimiento, Nombre_emprendimiento, Nombre_emprendedor, Telefono, Estado FROM EMPRENDIMIENTO")
+        emprendimientos = cursor.fetchall()
 
-    st.header("Registrar nuevo emprendimiento")
-
-    # Formulario
-    id_emprendimiento = st.text_input("ID del Emprendimiento")
-    nombre_emprendimiento = st.text_input("Nombre del emprendimiento")
-    nombre_emprendedor = st.text_input("Nombre del emprendedor")
-    telefono = st.text_input("Teléfono")
-    estado = st.selectbox("Estado", ["Activo", "Inactivo"])
-
-    if st.button("Registrar"):
-        if not (id_emprendimiento and nombre_emprendimiento and nombre_emprendedor and telefono and estado):
-            st.warning("⚠️ Por favor, completa todos los campos.")
+        if emprendimientos:
+            for emp in emprendimientos:
+                st.markdown(f"""
+                    **ID:** {emp[0]}  
+                    **Nombre:** {emp[1]}  
+                    **Emprendedor:** {emp[2]}  
+                    **Teléfono:** {emp[3]}  
+                    **Estado:** {emp[4]}  
+                    ---
+                """)
         else:
-            try:
-                con = obtener_conexion()
-                cursor = con.cursor()
+            st.info("No hay emprendimientos registrados.")
 
-                # Insertar en la tabla EMPRENDIMIENTO (sin Cuenta_bancaria)
-                cursor.execute("""
-                    INSERT INTO EMPRENDIMIENTO (
-                        ID_Emprendimiento,
-                        Nombre_emprendimiento,
-                        Nombre_emprendedor,
-                        Telefono,
-                        Estado
-                    ) VALUES (%s, %s, %s, %s, %s)
-                """, (
-                    id_emprendimiento,
-                    nombre_emprendimiento,
-                    nombre_emprendedor,
-                    telefono,
-                    estado
-                ))
-
-                con.commit()
-                st.success("✅ Emprendimiento registrado correctamente.")
-
-            except Exception as e:
-                st.error(f"❌ Error al registrar: {e}")
-            finally:
-                if 'cursor' in locals():
-                    cursor.close()
-                if 'con' in locals():
-                    con.close()
+    except Exception as e:
+        st.error(f"❌ Error al cargar emprendimientos: {e}")
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'con' in locals():
+            con.close()
