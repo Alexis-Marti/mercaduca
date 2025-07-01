@@ -1,6 +1,8 @@
-import streamlit as st
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), 'modulos'))
 
-# Importación de módulos
+import streamlit as st
 from modulos.login import login
 from modulos.ventas import mostrar_ventas
 from modulos.reporte_ventas import reporte_ventas
@@ -10,11 +12,11 @@ from modulos.registro_producto import registrar_producto
 from modulos.emprendimientos import mostrar_emprendimientos
 from modulos.productos import mostrar_productos
 from modulos.inventario import mostrar_inventario
+from modulos.dashboard import dashboard
 
-# Configuración de la página
 st.set_page_config(page_title="MERCADUCA", layout="centered")
 
-# Título principal con estilo
+# ========== ESTILO PERSONALIZADO ==========
 st.markdown(
     """
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
@@ -41,7 +43,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Estilo para logo en esquina inferior izquierda
 st.markdown(
     """
     <style>
@@ -56,32 +57,47 @@ st.markdown(
     """, unsafe_allow_html=True
 )
 
-# Mostrar logo
 st.markdown(
     '<img class="logo-bottom-left" src="https://raw.githubusercontent.com/devilchez/mercaduca-1/main/img/logo.png">',
     unsafe_allow_html=True
 )
 
-# Control de sesión
+# ========== AUTENTICACIÓN ==========
 if "usuario" not in st.session_state or "tipo_usuario" not in st.session_state:
     login()
 else:
     tipo = st.session_state["tipo_usuario"]
 
     st.sidebar.title("Menú")
-    opcion = st.sidebar.radio(
-        "Ir a:",
-        [
+
+    # Menú según tipo de usuario
+    if tipo == "Administrador":
+        opciones_menu = [
+            "Dashboard",
             "Ventas",
             "Reporte de ventas",
-            "Abastecimiento",
+            "Re-Stock",
             "Registrar Emprendimiento",
             "Gestionar Emprendimiento",
             "Registrar Productos",
             "Gestionar Productos",
             "Inventario",
         ]
-    )
+    elif tipo == "Asistente":
+        opciones_menu = [
+            "Ventas",
+            "Reporte de ventas",
+            "Inventario",
+        ]
+    else:
+        opciones_menu = []
+
+    # Mostrar el menú si hay opciones
+    if opciones_menu:
+        opcion = st.sidebar.radio("Ir a:", opciones_menu)
+    else:
+        st.warning("⚠️ Tu tipo de usuario no tiene módulos asignados.")
+        st.stop()
 
     st.sidebar.markdown("<br><hr><br>", unsafe_allow_html=True)
 
@@ -89,22 +105,25 @@ else:
         st.session_state.clear()
         st.rerun()
 
-    # Navegación por roles
-    if opcion == "Ventas" and tipo in ["Asistente", "Administrador"]:
+    # === Rutas a módulos según tipo y opción seleccionada ===
+    if opcion == "Ventas":
         mostrar_ventas()
-    elif opcion == "Reporte de ventas" and tipo in ["Administrador"]:
+    elif opcion == "Dashboard" and tipo == "Administrador":
+        dashboard()
+    elif opcion == "Reporte de ventas":
         reporte_ventas()
-    elif opcion == "Abastecimiento" and tipo in ["Administrador"]:
+    elif opcion == "Re-Stock" and tipo == "Administrador":
         mostrar_abastecimiento()
-    elif opcion == "Registrar Emprendimiento" and tipo in ["Administrador"]:
+    elif opcion == "Registrar Emprendimiento" and tipo == "Administrador":
         registrar_emprendimiento()
-    elif opcion == "Gestionar Emprendimiento" and tipo in ["Administrador"]:
+    elif opcion == "Gestionar Emprendimiento" and tipo == "Administrador":
         mostrar_emprendimientos()
-    elif opcion == "Registrar Productos" and tipo in ["Administrador"]:
+    elif opcion == "Registrar Productos" and tipo == "Administrador":
         registrar_producto()
-    elif opcion == "Gestionar Productos" and tipo in ["Administrador"]:
+    elif opcion == "Gestionar Productos" and tipo == "Administrador":
         mostrar_productos()
-    elif opcion == "Inventario" and tipo in ["Administrador"]:
+    elif opcion == "Inventario":
         mostrar_inventario()
     else:
         st.warning("No tienes permiso para acceder a esta sección.")
+
