@@ -12,7 +12,7 @@ from modulos.registro_producto import registrar_producto
 from modulos.emprendimientos import mostrar_emprendimientos
 from modulos.productos import mostrar_productos
 from modulos.inventario import mostrar_inventario
-from modulos.dashboard import dashboard
+
 
 st.set_page_config(page_title="MERCADUCA", layout="centered")
 
@@ -108,8 +108,6 @@ else:
     # === Rutas a módulos según tipo y opción seleccionada ===
     if opcion == "Ventas":
         mostrar_ventas()
-    elif opcion == "Dashboard" and tipo == "Administrador":
-        dashboard()
     elif opcion == "Reporte de ventas":
         reporte_ventas()
     elif opcion == "Re-Stock" and tipo == "Administrador":
