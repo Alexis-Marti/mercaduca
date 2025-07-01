@@ -1,8 +1,6 @@
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'modulos'))
-
 import streamlit as st
+
+# Importación de módulos
 from modulos.login import login
 from modulos.ventas import mostrar_ventas
 from modulos.reporte_ventas import reporte_ventas
@@ -13,9 +11,10 @@ from modulos.emprendimientos import mostrar_emprendimientos
 from modulos.productos import mostrar_productos
 from modulos.inventario import mostrar_inventario
 
+# Configuración de la página
 st.set_page_config(page_title="MERCADUCA", layout="centered")
 
-
+# Título principal con estilo
 st.markdown(
     """
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
@@ -42,7 +41,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-
+# Estilo para logo en esquina inferior izquierda
 st.markdown(
     """
     <style>
@@ -50,21 +49,20 @@ st.markdown(
         position: fixed;
         bottom: 15px;
         left: 15px;
-        width: 120px;  /* Tamaño del logo */
+        width: 120px;
         z-index: 100;
     }
     </style>
     """, unsafe_allow_html=True
 )
 
-# ✅ Mostrar el logo con clase correcta y ruta válida
+# Mostrar logo
 st.markdown(
     '<img class="logo-bottom-left" src="https://raw.githubusercontent.com/devilchez/mercaduca-1/main/img/logo.png">',
     unsafe_allow_html=True
 )
 
-
-# 🔐 Control de sesión
+# Control de sesión
 if "usuario" not in st.session_state or "tipo_usuario" not in st.session_state:
     login()
 else:
@@ -91,6 +89,7 @@ else:
         st.session_state.clear()
         st.rerun()
 
+    # Navegación por roles
     if opcion == "Ventas" and tipo in ["Asistente", "Administrador"]:
         mostrar_ventas()
     elif opcion == "Reporte de ventas" and tipo in ["Administrador"]:
